@@ -6,6 +6,7 @@
 # Copyright © 2012 - 2013 by Hisao Tsujimura
 #
 # 2013/03/26 Version 3.0 - rewrite of the tool
+# 2013/04/02 Version 3.0, fix 20130402a
 #==============================================================
 #--------------------------------------------------------------
 # Variables
@@ -16,6 +17,8 @@ export NAS_MOUNTPOINT=/Volumes/vm
 export VM_STATE_DIR=$NAS_MOUNTPOINT/vmstates
 export TEMPFILE=$VM_STATE_DIR/tempfile.temp
 export LOG_FILE='./backup_sh.log'
+## export DEBUG='true' # debug flag.  comment out when running
+                    # actual backup.
 
 #--------------------------------------------------------------
 # Functions - Logging function
@@ -130,31 +133,28 @@ check_vm_state_update()
 	
 	### debug code
 	### echo '### DEBUG state file path='$VM_STATE_FILE
-	
-	if [ -w $VM_STATE_FILE ]
-	then
-		export RC='false'
-	else
-		export RC='true'
-	fi
 
-	### CHECK when the status exist.
-	if [ -f $VM_STATE_FILE ]
-	then
-		VBoxManage showvminfo $i > $TEMPFILE 
-		STAT=`diff $TEMPFILE $VM_STATE_DIR/$i.state`
+### If te file is there, check the VM status and compare
+### with the previous state file.  If not, we need backup.
 
-		case $STAT in
-		'')
-			verbose '--- VM '$i' has no change.'
-			export RC='false'
-			;;
-		*)
-			verbose '--- VM '$i' needs backup.'
-			export RC='true'
-			;;
-		esac
-	fi
+    if [ -f $VM_STATE_FILE ]
+    then
+        VBoxManage showvminfo $i > $TEMPFILE
+        STAT=`diff $TEMPFILE $VM_STATE_DIR/$i.state`
+        case $STAT in
+        '')
+            verbose '--- VM '$i' has no change.'
+            export RC='false'
+            ;;
+        *)
+            verbose '--- VM '$i' needs backup.'
+            export RC='true'
+            ;;
+        esac
+    else
+        verbose '-- VM '$i' was never backed up.'
+        export RC='true'
+    fi
 
 	### echo $RC
 }
@@ -234,6 +234,9 @@ case $RC in
 	verbose ':::: backup is not necessary.'
 	SKIP='true'
 	;;
+*)
+    verbose ':::: backup is necessary.'
+    continue
 esac
 
 case $DEBUG in
@@ -241,7 +244,7 @@ case $DEBUG in
 	continue
 	;;
 *)
-	### verbose '### DEBUG skipping backup'
+	verbose '### DEBUG skipping backup'
 	SKIP='true'
 	;;
 esac
@@ -284,7 +287,7 @@ esac
 #--------------------------------------------------------------
 #Main Routine
 #--------------------------------------------------------------
-DEBUG='true'	# debug flag
+
 START_DATE=`date`
 
 show_title
