@@ -111,7 +111,6 @@ store_vm_state()
 	
 	verbose '::: saving VM state…'
 	VBoxManage showvminfo $VM_name > $VM_STATE_DIR/$VM_name.state
-	verbose '::: stored VM state.'
 }
 
 # function : check_vm_state_update
@@ -163,18 +162,36 @@ check_vm_state_update()
 # description:
 #  This function checks if $NAS_MOUNTPOINT exist.
 #  If it does, it returns true.  If not, it returns false.
+# return values:  0 = success, 16=failed
 #
+# 2013.04.02 - now checking if actual moiunt point name is in $9 of df command 
+# output.  This prevents code from giving a green light when the mount point
+# is something like /Volumes/vm-1.
+
 check_mount_point()
 {
 
-if [ ! -d $NAS_MOUNTPOINT  ]
-then
+RC=0	# set RC=0.
+
+STAT=`df -k | grep $NAS_MOUNTPOINT | awk '{print $9}'`
+
+case $STAT in 
+'')
+	export RC=16
 	verbose ' - backup directory '$NAS_MOUNTPOINT ' is not mounted.'
 	verbose ' - exiting.'
-	exit 16
-fi
-}
+	;;
+$NAS_MOUNTPOINT)
+	export RC=0
+	;;
+*)
+	export RC=16
+	verbose ' - backup directory '$NAS_MOUNTPOINT ' is not mounted.'
+	verbose ' - exiting.'
+	;;
+esac
 
+}
 
 #--------------------------------------------------------------
 # Function - backup
@@ -187,6 +204,7 @@ fi
 backup_this_vm()
 {
 	VM_name=$1	# preserve parameter
+	DEBUG=$2	# debug flag to skip actual export.
 
 	verbose '- backup: VM='$VM_name
 	
@@ -206,34 +224,58 @@ backup_this_vm()
 		verbose ':::: exporting: '$VM_name' ...'
 		verbose `date`
 		mkdir -p $NAS_MOUNTPOINT/$VM_name 2> /dev/null
-		VBoxManage export $VM_name --output $NAS_MOUNTPOINT/$VM_name/$VM_name.ovf --ovf20
-		RC=$?
-		if [ $RC != 0 ]
-		then
-			verbose '!!! export did not end normally. rc='$RC
-		fi
+		
+		case $DEBUG in 
+		'true')
+				continue
+				;;
+		*)
+			VBoxManage export $VM_name --output $NAS_MOUNTPOINT/$VM_name/$VM_name.ovf --ovf20
+			RC=$?
+			if [ $RC != 0 ]
+			then
+				verbose '!!! export did not end normally. rc='$RC
+			fi
+			if [ $RC = 0 ]
+			then
+				# now store new VM state
+				store_vm_state $VM_name
+			fi
+			;;
+		esac
 		;;
 	'true')
 		verbose ':::: '$VM_name 'is running - skipping.'
 		;;
 	esac
-
-	# now store new VM state
-	store_vm_state $VM_name
 }
+
 
 #--------------------------------------------------------------
 #Main Routine
 #--------------------------------------------------------------
-
+DEBUG='true'	# debug flag
+START_DATE=`date`
 
 show_title
+make_state_repository
+check_mount_point
+case $RC in 
+0)
+	continue;;
+16)
+	exit;;
+esac
+
+echo '### DBUG end of code'
+
 echo '-- backing up VMs (if any)'
 START_DATE=`date`
 
 for i in `get_vm_list`
 do
 	echo $i
+	backup_this_vm $i $DEBUG
 done
 
 END_DATE=`date`
