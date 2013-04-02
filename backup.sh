@@ -126,13 +126,20 @@ check_vm_state_update()
 
 	### CHECK when the status does not exist.
 
-	if [ !-f $VM_STATE_DIR/$VM_name.state ]
+	VM_STATE_FILE=$VM_STATE_DIR'/'$VM_name'.state'
+	
+	### debug code
+	### echo '### DEBUG state file path='$VM_STATE_FILE
+	
+	if [ -w $VM_STATE_FILE ]
 	then
-		RC=true
+		export RC='false'
+	else
+		export RC='true'
 	fi
 
 	### CHECK when the status exist.
-	if [ -f $VM_STATE_DIR/$VM_name.state ]
+	if [ -f $VM_STATE_FILE ]
 	then
 		VBoxManage showvminfo $i > $TEMPFILE 
 		STAT=`diff $TEMPFILE $VM_STATE_DIR/$i.state`
@@ -140,18 +147,17 @@ check_vm_state_update()
 		case $STAT in
 		'')
 			verbose '--- VM '$i' has no change.'
-			RC='false'
+			export RC='false'
 			;;
 		*)
 			verbose '--- VM '$i' needs backup.'
-			RC='true'
+			export RC='true'
 			;;
 		esac
 	fi
 
-	echo $RC
+	### echo $RC
 }
-
 
 #--------------------------------------------------------------
 # Functions - checking environment
@@ -203,53 +209,77 @@ esac
 #   This function backup 1 VM.
 backup_this_vm()
 {
-	VM_name=$1	# preserve parameter
-	DEBUG=$2	# debug flag to skip actual export.
 
-	verbose '- backup: VM='$VM_name
+VM_name=$1	# preserve parameter
+DEBUG=$2	# debug flag to skip actual export.
+
+verbose '- backup: VM='$VM_name
+
+## If the VM is running, skip it.
+
+VM_STATE=`vm_is_running $VM_name`
+SKIP='false'
+
+case $VM_STATE in 
+'true')
+	verbose ':::: VM is running.  Aborting export for VM='$VM_name
+	SKIP='true'
+	;;
+esac
 	
-	## If the VM is running, skip it.
+check_vm_state_update $VM_name
 
-	VM_STATE=`vm_is_running $VM_name`
+case $RC in
+'false')
+	verbose ':::: backup is not necessary.'
+	SKIP='true'
+	;;
+esac
 
-	case $VM_STATE in
-	'false')
-		#since VM is NOT running, do main backup.
-		verbose ':::: moving old backup.'
-		rm -rf $NAS_MOUNTPOINT/$VM_name.old 2> /dev/null
-		mv $NAS_MOUNTPOINT/$VM_name $NAS_MOUNTPOINT/$VM_name.old 2> /dev/null
+case $DEBUG in
+'')
+	continue
+	;;
+*)
+	### verbose '### DEBUG skipping backup'
+	SKIP='true'
+	;;
+esac
 
-		# now do actual export
-		
-		verbose ':::: exporting: '$VM_name' ...'
-		verbose `date`
-		mkdir -p $NAS_MOUNTPOINT/$VM_name 2> /dev/null
-		
-		case $DEBUG in 
-		'true')
-				continue
-				;;
-		*)
-			VBoxManage export $VM_name --output $NAS_MOUNTPOINT/$VM_name/$VM_name.ovf --ovf20
-			RC=$?
-			if [ $RC != 0 ]
-			then
-				verbose '!!! export did not end normally. rc='$RC
-			fi
-			if [ $RC = 0 ]
-			then
-				# now store new VM state
-				store_vm_state $VM_name
-			fi
-			;;
-		esac
-		;;
-	'true')
-		verbose ':::: '$VM_name 'is running - skipping.'
-		;;
-	esac
+##### now the VM is not runinng and backup IS necessary, so run it.
+
+case $SKIP in
+'false')
+	#since VM is NOT running, do main backup.
+	verbose ':::: moving old backup.'
+	rm -rf $NAS_MOUNTPOINT/$VM_name.old 2> /dev/null
+	mv $NAS_MOUNTPOINT/$VM_name $NAS_MOUNTPOINT/$VM_name.old 2> /dev/null
+	
+	# now do actual export
+	
+	verbose ':::: exporting: '$VM_name' ...'
+	verbose `date`
+	mkdir -p $NAS_MOUNTPOINT/$VM_name 2> /dev/null
+	
+	VBoxManage export $VM_name --output $NAS_MOUNTPOINT/$VM_name/$VM_name.ovf --ovf20
+	RC=$?
+	
+	if [ $RC != 0 ]
+	then
+		verbose '!!! export did not end normally. rc='$RC
+	fi
+	
+	if [ $RC = 0 ]
+		then
+		# now store new VM state
+		store_vm_state $VM_name
+	fi
+	;;
+'true')
+	verbose 'skipping back up of VM='$VM_name
+	;;
+esac
 }
-
 
 #--------------------------------------------------------------
 #Main Routine
@@ -258,7 +288,7 @@ DEBUG='true'	# debug flag
 START_DATE=`date`
 
 show_title
-make_state_repository
+#### check if mount point is available
 check_mount_point
 case $RC in 
 0)
@@ -267,16 +297,23 @@ case $RC in
 	exit;;
 esac
 
-echo '### DBUG end of code'
+#### check repository is available
+make_state_repository
 
+#### do backup to all VMs.  backup_this_vm() will judge if the backup is necessary.
 echo '-- backing up VMs (if any)'
 START_DATE=`date`
 
-for i in `get_vm_list`
+#### backup each VM
+LIST_OF_VMS=`get_vm_list`
+verbose 'LIst of VMs registered='$LIST_OF_VMS
+
+for i in $LIST_OF_VMS
 do
-	echo $i
 	backup_this_vm $i $DEBUG
 done
+
+### echo '### DBUG end of code'
 
 END_DATE=`date`
 verbose '  start date='$START_DATE
