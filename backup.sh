@@ -309,7 +309,13 @@ START_DATE=`date`
 
 #### backup each VM
 LIST_OF_VMS=`get_vm_list`
-verbose 'LIst of VMs registered='$LIST_OF_VMS
+verbose 'List of VMs registered:'
+
+### 2013.04.11 list VMs one VM per line instead of everything in the same line.
+for i in `echo $LIST_OF_VMS`
+do
+    verbose '-- '$i
+done
 
 for i in $LIST_OF_VMS
 do
