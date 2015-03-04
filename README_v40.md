@@ -137,6 +137,32 @@ state files.
 
 3. State Database Struture
 
+The state database consists of the following files.
+    - vmtool-db-version
+    - vmtool-statedb
+    - vmtool-dblock
+
+* vmtool-db-version
+    This is the version of state database so that the future migration tool
+    can check the version in future.  It contains the following fileds.
+        TOOL_VERSION: <the version of the tool>
+        DB_VERSION: <database version>
+    The database version is currently 1.0.
+
+* vmtool-statedb
+    This file cosists of the column separated values such as:
+        vm1:RUNNING
+
+    The current format is:
+        <vmname>:<status>
+
+* vmtool-dblock
+    This file is used to lock the database.  When the script is run from only one 
+    node, locking of the database is not necesary.  However, if you are backing 
+    up the VMs from multiple nodes and sharing state database, a simultaneous 
+    update can accidentally destroy the database.
+
+
 ### Customization
 
 
