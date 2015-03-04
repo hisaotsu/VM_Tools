@@ -120,5 +120,23 @@ VMs in this state will not be scheduled for backup.
 The status will not change unless updated by the command.
 
 ### State database
+
+1. Location
+
+State database will reside in $NAS_MOUNTPOINT or backup directory.
+The directory for state database is vmstate.
+Sample location of state database is such as below.
+
+  /Volumes/vm/vmstate
+
+2. Compatibility
+
+The older version of script used state files to preserve the previous state of 
+the virtual machines.  This version of script is not compatible with the
+state files.
+
+3. State Database Struture
+
 ### Customization
+
 
