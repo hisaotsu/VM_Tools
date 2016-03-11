@@ -37,7 +37,7 @@ Download this script and give execute permission.
 
 ## How To Use
 
-backupvm.sh [-archive|-pullout <VM name>]
+backupvm.sh [-archive|-activate] <VM name> 
 
 ## What It Does
 
@@ -54,7 +54,7 @@ This option sets the ARCHIVED state in the state database for the given VM.
 When this option is specified, backup will not be started.  This only
 updates the state database and move the backup image to ARCHIVE_DIR directory.
 
-__-pullout Option Specified__
+__-activate Option Specified__
 
 This option resets the ARCHIVED state in the state database for the given VM.
 When this option is specified, backup will not be started.  This only
@@ -79,7 +79,7 @@ database.
 
 ### Backup state machine
 
-Since this script wants to reschedule the backkup order flexibly, it 
+Since this script wants to reschedule the back up order flexibly, it 
 uses a simple state machine.  The below are state of backup instances.
 
     - NEW
@@ -110,7 +110,7 @@ When backup is complete, it will be set to CLEAN state.
 
 __RUNNING__
 
-When the VM is still running during the status update, it wil be set to RUNNING.
+When the VM is still running during the status update, it will be set to RUNNING.
 The VMs in this state will be deferred for backup.  The next state is
 BACKUP_NECESSARY.
 
@@ -133,7 +133,9 @@ Sample location of state database is such as below.
 
 The older version of script used state files to preserve the previous state of 
 the virtual machines.  This version of script is not compatible with the
-state files.
+state files.  Therefore, the previous state stored by the older version of the
+script has no effect to the behavior of this script.  All VMs will be treated
+as NEW in state database.
 
 3. State Database Struture
 
@@ -148,6 +150,8 @@ The state database consists of the following files.
         TOOL_VERSION: <the version of the tool>
         DB_VERSION: <database version>
     The database version is currently 1.0.
+    There is no migration tool available as of today, therefore the tool 
+    version is set to 0.0. 
 
 * vmtool-statedb
     This file cosists of the column separated values such as:
@@ -162,7 +166,46 @@ The state database consists of the following files.
     up the VMs from multiple nodes and sharing state database, a simultaneous 
     update can accidentally destroy the database.
 
+### Workers
 
-### Customization
+In order to make the backup run simultaneously, I introduced "worker" structure.
+Workers are implemented as functions in the script, and called serially as of 
+today, and implemented as a single script.
+
+To Do:  separate workers into different scripts and let them run simultaneously,
+using the state database as the means of synchronization.
+
+#### Backup Workers
+
+Backup workers are in charge of the followings.
+
+(1) Starting VBoxManage commands in the back ground.
+(2) Monitoring the VBoxManage command running.
+(3) Call database workers to update state database.
+
+Caveat:  I need to check what happens when VBoxManage startvm is run while we 
+are exporting the VM.
+
+#### vmfind Worker 
+
+vmfind worker is in charget of finding new VMs that are not listed in the state 
+database and call database workers to update the database.
+
+#### State Change Notifier
+
+State Change notifier checks the state of database and call database workers 
+to update state database.
+
+#### Database Workers
+
+Database workers are in charge of maintaining state database.
+It has the following functions.
+
+- Obtaining an exclusive lock
+- Releasing an exclusive lock
+- Adding record to database
+- Updating record to database
+- Deleting record from database
+
 
 
