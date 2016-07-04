@@ -7,12 +7,13 @@
 #
 # 2013/03/26 Version 3.0 - rewrite of the tool
 # 2013/04/02 Version 3.0, fix 20130402a
+# 2016/07/03 Version 3.0, fix 20160703a - mount point change. 
 #==============================================================
 #--------------------------------------------------------------
 # Variables
 #--------------------------------------------------------------
 export VERSION=3.0
-export NAS_MOUNTPOINT=/Volumes/vm
+export NAS_MOUNTPOINT=/Volumes/hisaotsu
 ##export NAS_MOUNTPOINT=/Volumes/export/vm
 export VM_STATE_DIR=$NAS_MOUNTPOINT/vmstates
 export TEMPFILE=$VM_STATE_DIR/tempfile.temp
