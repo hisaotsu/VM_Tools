@@ -7,12 +7,13 @@
 #
 # 2013/03/26 Version 3.0 - rewrite of the tool
 # 2013/04/02 Version 3.0, fix 20130402a
+# 2018/01/27 Version 3.0, fix 20180127a - OVA format
 #==============================================================
 #--------------------------------------------------------------
 # Variables
 #--------------------------------------------------------------
 export VERSION=3.0
-export NAS_MOUNTPOINT=/Volumes/vm
+export NAS_MOUNTPOINT=/Volumes/hisaotsu
 ##export NAS_MOUNTPOINT=/Volumes/export/vm
 export VM_STATE_DIR=$NAS_MOUNTPOINT/vmstates
 export TEMPFILE=$VM_STATE_DIR/tempfile.temp
@@ -264,7 +265,7 @@ case $SKIP in
 	verbose `date`
 	mkdir -p $NAS_MOUNTPOINT/$VM_name 2> /dev/null
 	
-	VBoxManage export $VM_name --output $NAS_MOUNTPOINT/$VM_name/$VM_name.ovf --ovf20
+	VBoxManage export $VM_name --output $NAS_MOUNTPOINT/$VM_name/$VM_name.ova
 	RC=$?
 	
 	if [ $RC != 0 ]
